@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.pyc
+
+.env
+.streamlit/secrets.toml
+aws keys.rtf
+s3_upload_test.txt
+dummy_backup.py 
+
+*.mp4
+*.mov
+*.avi
+
+*.jpg
+*.jpeg
+*.png
+
+test_data/
