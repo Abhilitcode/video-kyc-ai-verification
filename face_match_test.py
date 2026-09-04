@@ -52,7 +52,7 @@ def get_face_embedding(image):
 # 3. Extract one frame from the KYC video
 # --------------------------------------------------
 
-video_path = r"video_kyc_test1.mp4"
+video_path = r"ash_vkyc_test.mp4"
 
 video_capture = cv2.VideoCapture(video_path)
 
@@ -82,7 +82,7 @@ if not success:
 # 4. Read the ID image
 # --------------------------------------------------
 
-id_image = cv2.imread("dummy_id.png")
+id_image = cv2.imread("ash_dummy_id.png")
 
 if id_image is None:
     print("Could not open dummy_id.png.")
