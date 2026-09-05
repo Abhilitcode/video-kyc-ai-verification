@@ -8,6 +8,7 @@ aws keys.rtf
 s3_upload_test.txt
 dummy_backup.py 
 
+
 *.mp4
 *.mov
 *.avi
@@ -15,5 +16,7 @@ dummy_backup.py
 *.jpg
 *.jpeg
 *.png
+
+*.xlsx
 
 test_data/
