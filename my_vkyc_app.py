@@ -275,7 +275,7 @@ def compare_faces(
     )
 
     # Initial dlib reference threshold.
-    threshold = 0.60
+    threshold = 0.50
 
     # Determine whether it is below the threshold.
     face_match = face_distance < threshold
