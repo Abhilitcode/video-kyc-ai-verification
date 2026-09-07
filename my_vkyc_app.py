@@ -12,6 +12,7 @@ import easyocr
 import re
 from pypdf import PdfReader 
 from openai import OpenAI
+from PIL import Image
 
 
 # ============================================================
@@ -948,7 +949,8 @@ State the appropriate next action for the verification team.
 
 
 def validate_photo_id(image_path: str) -> bool:
-    """Validate that the file exists, is non-empty, and can be decoded as an image."""
+    """Validate that the file exists, is non-empty, and is a valid image."""
+
     if not isinstance(image_path, str) or not os.path.isfile(image_path):
         return False
 
@@ -956,8 +958,17 @@ def validate_photo_id(image_path: str) -> bool:
         return False
 
     try:
-        image = cv2.imread(image_path)
-        return image is not None and image.size > 0
+        # Check that the image structure is valid
+        with Image.open(image_path) as image:
+            image.verify()
+
+        # Re-open and fully load the image
+        # to catch truncated/corrupted image data
+        with Image.open(image_path) as image:
+            image.load()
+
+        return True
+
     except Exception:
         return False
 
