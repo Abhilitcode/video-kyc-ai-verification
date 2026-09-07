@@ -947,10 +947,53 @@ State the appropriate next action for the verification team.
     return response.choices[0].message.content
 
 
+def validate_photo_id(image_path: str) -> bool:
+    """Validate that the file exists, is non-empty, and can be decoded as an image."""
+    if not isinstance(image_path, str) or not os.path.isfile(image_path):
+        return False
+
+    if os.path.getsize(image_path) == 0:
+        return False
+
+    try:
+        image = cv2.imread(image_path)
+        return image is not None and image.size > 0
+    except Exception:
+        return False
 
 
+def validate_video(video_path: str) -> bool:
+    """Validate that the file exists, is non-empty, opens, and contains readable frames."""
+    if not isinstance(video_path, str) or not os.path.isfile(video_path):
+        return False
 
+    if os.path.getsize(video_path) == 0:
+        return False
 
+    cap = None
+    try:
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            return False
+
+        # Read the first frame to ensure the stream/codec actually works
+        ret, frame = cap.read()
+        return bool(ret and frame is not None and frame.size > 0)
+    except Exception:
+        return False
+    finally:
+        if cap is not None:
+            cap.release()
+
+# def validate_photo_id_face(image_path):
+#     image = cv2.imread(image_path)
+#     if image is None:
+#         return False
+
+#     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#     faces = face_detector(gray)
+
+#     return len(faces) == 1
 
 
 
@@ -1102,6 +1145,38 @@ if st.button("Submit"):
             temp_video_path = (
                 temp_video.name
             )
+
+        # ====================================================
+        # INPUT VALIDATION
+        # ====================================================
+
+        def cleanup_and_stop():
+            for temp_file in (temp_photo_path, temp_video_path):
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                except OSError:
+                    pass
+            st.stop()
+
+        photo_valid = validate_photo_id(temp_photo_path)
+        video_valid = validate_video(temp_video_path)
+
+        # 1. File Integrity Check
+        if not photo_valid or not video_valid:
+            if not photo_valid and not video_valid:
+                st.error("Both the uploaded Photo ID and video are invalid or corrupted.")
+            elif not photo_valid:
+                st.error("The uploaded Photo ID is invalid or corrupted.")
+            else:
+                st.error("The uploaded video is invalid or corrupted.")
+            cleanup_and_stop()
+
+        # # 2. Face Count Check (runs only if photo file is valid)
+        # photo_face_valid = validate_photo_id_face(temp_photo_path)
+        # if not photo_face_valid:
+        #     st.error("The Photo ID must contain exactly one detectable face.")
+        #     cleanup_and_stop()
 
 
         # ====================================================
