@@ -1460,15 +1460,15 @@ if st.button("Submit"):
             assessment
         )
 
-        st.write("### Latency Benchmark")
+        # st.write("### Latency Benchmark")
 
-        st.write(f"S3 upload: {s3_time:.3f} seconds")
-        st.write(f"OCR: {ocr_time:.3f} seconds")
-        st.write(f"Face matching: {face_time:.3f} seconds")
-        st.write(f"Liveness: {liveness_time:.3f} seconds")
-        st.write(f"RAG retrieval: {rag_time:.3f} seconds")
-        st.write(f"LLM assessment: {llm_time:.3f} seconds")
-        st.write(f"Total KYC time: {total_time:.3f} seconds")
+        # st.write(f"S3 upload: {s3_time:.3f} seconds")
+        # st.write(f"OCR: {ocr_time:.3f} seconds")
+        # st.write(f"Face matching: {face_time:.3f} seconds")
+        # st.write(f"Liveness: {liveness_time:.3f} seconds")
+        # st.write(f"RAG retrieval: {rag_time:.3f} seconds")
+        # st.write(f"LLM assessment: {llm_time:.3f} seconds")
+        # st.write(f"Total KYC time: {total_time:.3f} seconds")
 
         # ====================================================
         # DELETE TEMPORARY FILES
