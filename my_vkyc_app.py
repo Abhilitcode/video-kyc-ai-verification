@@ -13,6 +13,7 @@ import re
 from pypdf import PdfReader 
 from openai import OpenAI
 from PIL import Image
+import time
 
 
 # ============================================================
@@ -1054,6 +1055,7 @@ photo_id_file = st.file_uploader(
 # ============================================================
 
 if st.button("Submit"):
+    total_start = time.perf_counter()
 
     if (
         video_file is not None
@@ -1073,6 +1075,7 @@ if st.button("Submit"):
         # UPLOAD PHOTO ID TO S3
         # ====================================================
 
+        s3_start = time.perf_counter()
         photo_name = (
             f"photo_{photo_id_file.name}"
         )
@@ -1098,6 +1101,8 @@ if st.button("Submit"):
             video_name
         )
 
+        s3_end = time.perf_counter()
+        s3_time = s3_end - s3_start
 
         # ====================================================
         # S3 RESULT
@@ -1198,9 +1203,12 @@ if st.button("Submit"):
             "ID Information"
         )
 
+        ocr_start = time.perf_counter()
         id_information = extract_id_information(
             temp_photo_path
         )
+        ocr_end = time.perf_counter()
+        ocr_time = ocr_end - ocr_start
 
         st.write(
             f"Name: {id_information['name']}"
@@ -1228,6 +1236,7 @@ if st.button("Submit"):
             temp_photo_path
         )
 
+        face_start = time.perf_counter()
         # Generate ID face embedding.
         id_embedding = get_face_embedding(
             id_image
@@ -1263,11 +1272,14 @@ if st.button("Submit"):
             )
 
         else:
-
             face_distance, face_match = compare_faces(
                 id_embedding,
                 video_embedding
             )
+
+            face_end = time.perf_counter()
+            face_time = face_end - face_start
+
 
             st.write(
                 f"Face distance: "
@@ -1291,6 +1303,7 @@ if st.button("Submit"):
                 )
 
 
+
         # ====================================================
         # LIVENESS
         # ====================================================
@@ -1299,11 +1312,14 @@ if st.button("Submit"):
             "Liveness Verification"
         )
 
+        liveness_start = time.perf_counter()
         liveness_result = (
             detect_blinks_and_lip_movement(
                 temp_video_path
             )
         )
+        liveness_end = time.perf_counter()
+        liveness_time = liveness_end - liveness_start
 
         st.write(
             f"Total blinks detected: "
@@ -1410,20 +1426,30 @@ if st.button("Submit"):
         # RETRIEVE RELEVANT POLICY
         # ============================================================
 
+        rag_start = time.perf_counter()
         retrieved_policy, top_chunks = retrieve_kyc_policy(
             query,
             policy_chunks
         )
+        rag_end = time.perf_counter()
+        rag_time = rag_end - rag_start
 
 
         # ============================================================
         # GENERATE AI ASSESSMENT
         # ============================================================
 
+        llm_start = time.perf_counter()
         assessment = generate_kyc_assessment(
             evidence,
             retrieved_policy
         )
+
+        llm_end = time.perf_counter()
+        llm_time = llm_end - llm_start
+
+        total_end = time.perf_counter()
+        total_time = total_end - total_start
 
 
         # ============================================================
@@ -1434,6 +1460,15 @@ if st.button("Submit"):
             assessment
         )
 
+        st.write("### Latency Benchmark")
+
+        st.write(f"S3 upload: {s3_time:.3f} seconds")
+        st.write(f"OCR: {ocr_time:.3f} seconds")
+        st.write(f"Face matching: {face_time:.3f} seconds")
+        st.write(f"Liveness: {liveness_time:.3f} seconds")
+        st.write(f"RAG retrieval: {rag_time:.3f} seconds")
+        st.write(f"LLM assessment: {llm_time:.3f} seconds")
+        st.write(f"Total KYC time: {total_time:.3f} seconds")
 
         # ====================================================
         # DELETE TEMPORARY FILES
