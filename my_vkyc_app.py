@@ -1505,7 +1505,7 @@ if st.button("Submit"):
         total_time = total_end - total_start
         logger.info(
         "KYC verification completed in %.3f seconds",
-        llm_time
+        total_time
     )
 
 
