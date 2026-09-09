@@ -14,6 +14,17 @@ from pypdf import PdfReader
 from openai import OpenAI
 from PIL import Image
 import time
+import logging
+
+# ============================================================
+# SET UP THE LOGGER
+# ============================================================
+logging.basicConfig(
+    level=logging.INFO,
+    format= "%(asctime)s - %(levelname)s - %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -1056,6 +1067,7 @@ photo_id_file = st.file_uploader(
 
 if st.button("Submit"):
     total_start = time.perf_counter()
+    logger.info("KYC verification started")
 
     if (
         video_file is not None
@@ -1112,11 +1124,17 @@ if st.button("Submit"):
             uploaded_photo
             and uploaded_video
         ):
+            logger.info(
+                "Photo ID and video successfully uploaded to S3."
+
+            )
 
             st.success(
                 "Photo ID and video successfully "
                 "uploaded to S3."
             )
+        else:
+            logger.error("S3 upload failed for one or more KYC files")
 
 
         # ====================================================
@@ -1176,10 +1194,14 @@ if st.button("Submit"):
             st.stop()
 
         photo_valid = validate_photo_id(temp_photo_path)
-        video_valid = validate_video(temp_video_path)
+        video_valid = validate_video(temp_video_path) 
+
+        if photo_valid and video_valid:
+            logger.info("Photo ID and video passed input validation")
 
         # 1. File Integrity Check
         if not photo_valid or not video_valid:
+            logger.error("KYC input validation failed")
             if not photo_valid and not video_valid:
                 st.error("Both the uploaded Photo ID and video are invalid or corrupted.")
             elif not photo_valid:
@@ -1209,6 +1231,8 @@ if st.button("Submit"):
         )
         ocr_end = time.perf_counter()
         ocr_time = ocr_end - ocr_start
+
+        logger.info(f"OCR completed successfully in {ocr_time:.3f} seconds.")
 
         st.write(
             f"Name: {id_information['name']}"
@@ -1258,6 +1282,9 @@ if st.button("Submit"):
         # ----------------------------------------------------
 
         if id_embedding is None:
+            logger.warning(
+                "Face verification could not proceed: no single face detected in Photo ID"
+            )
 
             st.warning(
                 "No single face detected "
@@ -1265,6 +1292,9 @@ if st.button("Submit"):
             )
 
         elif video_embedding is None:
+            logger.warning(
+                "Face verification could not proceed: no single face detected in KYC video"
+            )
 
             st.warning(
                 "No single face detected "
@@ -1277,8 +1307,6 @@ if st.button("Submit"):
                 video_embedding
             )
 
-            face_end = time.perf_counter()
-            face_time = face_end - face_start
 
 
             st.write(
@@ -1291,16 +1319,25 @@ if st.button("Submit"):
             # )
 
             if face_match:
+                logger.info("Face verification completed: match passed")
 
                 st.success(
                     "Face Match: PASS"
                 )
 
             else:
+                logger.warning("Face verification completed: match requires review")
 
                 st.warning(
                     "Face Match: REVIEW"
                 )
+        face_end = time.perf_counter()
+        face_time = face_end - face_start
+
+        logger.info(
+            "Face verification stage completed in %.3f seconds",
+            face_time
+        )
 
 
 
@@ -1320,6 +1357,12 @@ if st.button("Submit"):
         )
         liveness_end = time.perf_counter()
         liveness_time = liveness_end - liveness_start
+
+        logger.info(
+            "Liveness verification completed with %s status in %.3f seconds.",
+            liveness_result["liveness_status"],
+            liveness_time
+        )
 
         st.write(
             f"Total blinks detected: "
@@ -1433,6 +1476,10 @@ if st.button("Submit"):
         )
         rag_end = time.perf_counter()
         rag_time = rag_end - rag_start
+        logger.info(
+        "KYC policy retrieval completed in %.3f seconds",
+        rag_time
+    )
 
 
         # ============================================================
@@ -1447,9 +1494,17 @@ if st.button("Submit"):
 
         llm_end = time.perf_counter()
         llm_time = llm_end - llm_start
+        logger.info(
+        "LLM KYC assessment completed in %.3f seconds",
+        llm_time
+    )
 
         total_end = time.perf_counter()
         total_time = total_end - total_start
+        logger.info(
+        "KYC verification completed in %.3f seconds",
+        llm_time
+    )
 
 
         # ============================================================
@@ -1460,15 +1515,6 @@ if st.button("Submit"):
             assessment
         )
 
-        # st.write("### Latency Benchmark")
-
-        # st.write(f"S3 upload: {s3_time:.3f} seconds")
-        # st.write(f"OCR: {ocr_time:.3f} seconds")
-        # st.write(f"Face matching: {face_time:.3f} seconds")
-        # st.write(f"Liveness: {liveness_time:.3f} seconds")
-        # st.write(f"RAG retrieval: {rag_time:.3f} seconds")
-        # st.write(f"LLM assessment: {llm_time:.3f} seconds")
-        # st.write(f"Total KYC time: {total_time:.3f} seconds")
 
         # ====================================================
         # DELETE TEMPORARY FILES
@@ -1483,6 +1529,8 @@ if st.button("Submit"):
         )
 
     else:
+        logger.warning("KYC submission attempted without both required files"
+        )
 
         st.warning(
             "Please upload both video and Photo ID."
