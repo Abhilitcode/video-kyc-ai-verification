@@ -861,29 +861,29 @@ def generate_kyc_assessment(
     # --------------------------------------------------------
 
     kyc_evidence = f"""
-Name: {evidence["id_information"]["name"]}
-DOB: {evidence["id_information"]["dob"]}
-ID Number: {evidence["id_information"]["id_number"]}
+    Name: {evidence["id_information"]["name"]}
+    DOB: {evidence["id_information"]["dob"]}
+    ID Number: {evidence["id_information"]["id_number"]}
 
-Face distance: {evidence["face_distance"]}
+    Face distance: {evidence["face_distance"]}
 
-Face match: {evidence["face_match"]}
+    Face match: {evidence["face_match"]}
 
-Blink count: {evidence["liveness"]["blink_count"]}
-Lip movement count: {evidence["liveness"]["lip_movement_count"]}
+    Blink count: {evidence["liveness"]["blink_count"]}
+    Lip movement count: {evidence["liveness"]["lip_movement_count"]}
 
-Face detected in video: {
-    evidence["liveness"]["face_detected"]
-}
+    Face detected in video: {
+        evidence["liveness"]["face_detected"]
+    }
 
-Multiple faces detected in video: {
-    evidence["liveness"]["multiple_faces_detected"]
-}
+    Multiple faces detected in video: {
+        evidence["liveness"]["multiple_faces_detected"]
+    }
 
-Liveness status: {
-    evidence["liveness"]["liveness_status"]
-}
-"""
+    Liveness status: {
+        evidence["liveness"]["liveness_status"]
+    }
+    """
 
 
     # --------------------------------------------------------
@@ -891,53 +891,53 @@ Liveness status: {
     # --------------------------------------------------------
 
     prompt = f"""
-You are an AI assistant supporting a bank's KYC verification team.
+    You are an AI assistant supporting a bank's KYC verification team.
 
-Evaluate the provided KYC evidence strictly according to the
-retrieved KYC policy.
+    Evaluate the provided KYC evidence strictly according to the
+    retrieved KYC policy.
 
-IMPORTANT INSTRUCTIONS:
+    IMPORTANT INSTRUCTIONS:
 
-1. Use only the KYC evidence and retrieved policy provided below.
-2. Do not invent facts, rules, thresholds, or verification results.
-3. Do not change or reinterpret the policy rules.
-4. If the policy says PASS, return PASS.
-5. If the policy says REVIEW, return REVIEW.
-6. If the policy says FAIL, return FAIL.
-7. Do not treat REVIEW as FAIL.
-8. Do not treat FAIL as REVIEW or PASS.
-9. Clearly distinguish between a confirmed failure and an
-   inconclusive case.
-10. The explanation must be concise, professional, and suitable
-    for a bank verification team.
-11. Do not mention embeddings, vectors, chunks, cosine similarity,
-    model names, or other internal technical details.
-12. Base the reason directly on the supplied evidence and policy.
-13. Do not make assumptions about information that is not provided.
-14. Do not introduce specific verification procedures, corrective
-    actions, or requirements unless they are supported by the
-    provided KYC policy.
-15. When multiple conditions are present, select FAIL if any
-    conclusive FAIL condition applies. REVIEW conditions must not
-    override a conclusive FAIL condition.
+    1. Use only the KYC evidence and retrieved policy provided below.
+    2. Do not invent facts, rules, thresholds, or verification results.
+    3. Do not change or reinterpret the policy rules.
+    4. If the policy says PASS, return PASS.
+    5. If the policy says REVIEW, return REVIEW.
+    6. If the policy says FAIL, return FAIL.
+    7. Do not treat REVIEW as FAIL.
+    8. Do not treat FAIL as REVIEW or PASS.
+    9. Clearly distinguish between a confirmed failure and an
+    inconclusive case.
+    10. The explanation must be concise, professional, and suitable
+        for a bank verification team.
+    11. Do not mention embeddings, vectors, chunks, cosine similarity,
+        model names, or other internal technical details.
+    12. Base the reason directly on the supplied evidence and policy.
+    13. Do not make assumptions about information that is not provided.
+    14. Do not introduce specific verification procedures, corrective
+        actions, or requirements unless they are supported by the
+        provided KYC policy.
+    15. When multiple conditions are present, select FAIL if any
+        conclusive FAIL condition applies. REVIEW conditions must not
+        override a conclusive FAIL condition.
 
-KYC EVIDENCE:
-{kyc_evidence}
+    KYC EVIDENCE:
+    {kyc_evidence}
 
-RETRIEVED KYC POLICY:
-{retrieved_policy}
+    RETRIEVED KYC POLICY:
+    {retrieved_policy}
 
-Return the result exactly in this format:
+    Return the result exactly in this format:
 
-Decision: PASS / REVIEW / FAIL
+    Decision: PASS / REVIEW / FAIL
 
-Reason:
-Give a concise explanation of why this decision follows from
-the KYC evidence and the retrieved policy.
+    Reason:
+    Give a concise explanation of why this decision follows from
+    the KYC evidence and the retrieved policy.
 
-Recommended Action:
-State the appropriate next action for the verification team.
-"""
+    Recommended Action:
+    State the appropriate next action for the verification team.
+    """
 
 
     # --------------------------------------------------------
