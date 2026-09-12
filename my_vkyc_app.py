@@ -15,6 +15,7 @@ from openai import OpenAI
 from PIL import Image
 import time
 import logging
+import watchtower
 
 # ============================================================
 # SET UP THE LOGGER
@@ -27,6 +28,18 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+# Handling the messages using watchtower 
+if not any(
+    isinstance(handler, watchtower.CloudWatchLogHandler)
+    for handler in logger.handlers
+):
+    cloudwatch_log_handler = watchtower.CloudWatchLogHandler(
+        log_group_name="/ai-kyc/application",
+        log_stream_name="kyc-app"
+    )
+
+    logger.addHandler(cloudwatch_log_handler)
 
 
 # ============================================================
