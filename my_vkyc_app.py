@@ -1042,16 +1042,23 @@ def validate_video(video_path: str) -> bool:
 # Cloudwatch fucntion
 # ============================================================
 def publish_metric(metric_name, value, unit):
-    cloudwatch_client.put_metric_data(
-        Namespace="AI-KYC",
-        MetricData=[
-            {
-                "MetricName": metric_name,
-                "Value": float(value),
-                "Unit": unit
-            }
-        ]
-    )
+    try:
+        cloudwatch_client.put_metric_data(
+            Namespace="AI-KYC",
+            MetricData=[
+                {
+                    "MetricName": metric_name,
+                    "Value": float(value),
+                    "Unit": unit
+                }
+            ]
+        )
+    except Exception as e:
+        logger.error(
+            "CloudWatch metric publishing failed for %s: %s",
+            metric_name,
+            e
+        )
 
 # ============================================================
 # STREAMLIT UI
@@ -1235,6 +1242,11 @@ if st.button("Submit"):
         # 1. File Integrity Check
         if not photo_valid or not video_valid:
             logger.error("KYC input validation failed")
+            publish_metric(
+                "KYC_Errors",
+                1,
+                "Count"
+            )
             if not photo_valid and not video_valid:
                 st.error("Both the uploaded Photo ID and video are invalid or corrupted.")
             elif not photo_valid:
@@ -1266,6 +1278,11 @@ if st.button("Submit"):
         ocr_time = ocr_end - ocr_start
 
         logger.info(f"OCR completed successfully in {ocr_time:.3f} seconds.")
+        publish_metric(
+            "OCRLatency",
+            ocr_time,
+            "Seconds"
+        )
 
         st.write(
             f"Name: {id_information['name']}"
@@ -1371,6 +1388,11 @@ if st.button("Submit"):
             "Face verification stage completed in %.3f seconds",
             face_time
         )
+        publish_metric(
+            "FaceLatency",
+            face_time,
+            "Seconds"
+        )
 
 
 
@@ -1395,6 +1417,12 @@ if st.button("Submit"):
             "Liveness verification completed with %s status in %.3f seconds.",
             liveness_result["liveness_status"],
             liveness_time
+        )
+
+        publish_metric(
+            "LivenessLatency",
+            liveness_time,
+            "Seconds"
         )
 
         st.write(
@@ -1509,10 +1537,17 @@ if st.button("Submit"):
         )
         rag_end = time.perf_counter()
         rag_time = rag_end - rag_start
+        
         logger.info(
         "KYC policy retrieval completed in %.3f seconds",
         rag_time
-    )
+        )
+
+        publish_metric(
+            "RAGLatency",
+            rag_time,
+            "Seconds"
+        )
 
 
         # ============================================================
@@ -1525,24 +1560,53 @@ if st.button("Submit"):
             retrieved_policy
         )
 
+        decision_match = re.search(
+            r"Decision:\s*(PASS|REVIEW|FAIL)",
+            assessment,
+            re.IGNORECASE
+        )
+
+        if decision_match:
+            decision = decision_match.group(1).upper()
+
+            publish_metric(
+                f"KYC_{decision}",
+                1,
+                "Count"
+            )
+
+            logger.info(
+                "KYC final decision recorded as %s",
+                decision
+            )
+
         llm_end = time.perf_counter()
         llm_time = llm_end - llm_start
+
         logger.info(
         "LLM KYC assessment completed in %.3f seconds",
         llm_time
-    )
+        )
+
+        publish_metric(
+            "LLMLatency",
+            llm_time,
+            "Seconds"
+        )
 
         total_end = time.perf_counter()
         total_time = total_end - total_start
+
         logger.info(
         "KYC verification completed in %.3f seconds",
         total_time
-    )
+        )
+
         publish_metric(
             "TotalLatency",
             total_time,
             "Seconds"
-    )
+        )
 
 
         # ============================================================
