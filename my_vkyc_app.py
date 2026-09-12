@@ -81,13 +81,18 @@ ocr_reader = load_ocr_model()
 
 
 # ============================================================
-# AWS CONFIGURATION AND OPENAi client
+# AWS CONFIGURATION AND OPENAi client and cloudwatch
 # ============================================================
 
 aws_bucket_name = "video-kyc-ai"
 aws_region = "ap-south-1"
 
 openai_client = OpenAI()
+
+cloudwatch_client = boto3.client(
+    "cloudwatch",
+    region_name=aws_region
+)
 
 # ============================================================
 # UPLOAD FILE TO S3
@@ -1020,7 +1025,20 @@ def validate_video(video_path: str) -> bool:
 
 #     return len(faces) == 1
 
-
+# ============================================================
+# Cloudwatch fucntion
+# ============================================================
+def publish_metric(metric_name, value, unit):
+    cloudwatch_client.put_metric_data(
+        Namespace="AI-KYC",
+        MetricData=[
+            {
+                "MetricName": metric_name,
+                "Value": float(value),
+                "Unit": unit
+            }
+        ]
+    )
 
 # ============================================================
 # STREAMLIT UI
@@ -1506,6 +1524,11 @@ if st.button("Submit"):
         logger.info(
         "KYC verification completed in %.3f seconds",
         total_time
+    )
+        publish_metric(
+            "TotalLatency",
+            total_time,
+            "Seconds"
     )
 
 
