@@ -980,6 +980,93 @@ def generate_kyc_assessment(
     return response.choices[0].message.content
 
 
+# ============================================================
+# VALIDATE LLM KYC ASSESSMENT
+# ============================================================
+
+def validate_kyc_assessment(assessment):
+    """
+    Validate the structure and decision returned by the LLM.
+
+    This is an output guardrail:
+    it prevents invalid or incomplete LLM responses
+    from being accepted by the application.
+    """
+
+    # --------------------------------------------------------
+    # Check that the response exists
+    # --------------------------------------------------------
+
+    if not isinstance(assessment, str):
+        return False, None, "LLM response is not valid text."
+
+    assessment = assessment.strip()
+
+    if not assessment:
+        return False, None, "LLM returned an empty response."
+
+    # --------------------------------------------------------
+    # Extract decision
+    # --------------------------------------------------------
+
+    decision_match = re.search(
+        r"^Decision:\s*(PASS|REVIEW|FAIL)\s*$",
+        assessment,
+        re.IGNORECASE | re.MULTILINE
+    )
+
+    if not decision_match:
+        return (
+            False,
+            None,
+            "LLM response does not contain a valid "
+            "PASS, REVIEW, or FAIL decision."
+        )
+
+    decision = decision_match.group(1).upper()
+
+    # --------------------------------------------------------
+    # Check Reason section
+    # --------------------------------------------------------
+
+    reason_match = re.search(
+        r"Reason:\s*(.*?)(?=\n\s*Recommended Action:|\Z)",
+        assessment,
+        re.IGNORECASE | re.DOTALL
+    )
+
+    if not reason_match or not reason_match.group(1).strip():
+        return (
+            False,
+            None,
+            "LLM response does not contain a valid Reason."
+        )
+
+    # --------------------------------------------------------
+    # Check Recommended Action section
+    # --------------------------------------------------------
+
+    action_match = re.search(
+        r"Recommended Action:\s*(.*)$",
+        assessment,
+        re.IGNORECASE | re.DOTALL
+    )
+
+    if not action_match or not action_match.group(1).strip():
+        return (
+            False,
+            None,
+            "LLM response does not contain a valid "
+            "Recommended Action."
+        )
+
+    # --------------------------------------------------------
+    # Output passed validation
+    # --------------------------------------------------------
+
+    return True, decision, None
+
+
 def validate_photo_id(image_path: str) -> bool:
     """Validate that the file exists, is non-empty, and is a valid image."""
 
@@ -1555,37 +1642,30 @@ if st.button("Submit"):
         # ============================================================
 
         llm_start = time.perf_counter()
+
         assessment = generate_kyc_assessment(
             evidence,
             retrieved_policy
         )
 
-        decision_match = re.search(
-            r"Decision:\s*(PASS|REVIEW|FAIL)",
-            assessment,
-            re.IGNORECASE
+        # ============================================================
+        # OUTPUT GUARDRAIL
+        # ============================================================
+
+        assessment_valid, decision, validation_error = (
+            validate_kyc_assessment(assessment)
         )
 
-        if decision_match:
-            decision = decision_match.group(1).upper()
-
-            publish_metric(
-                f"KYC_{decision}",
-                1,
-                "Count"
-            )
-
-            logger.info(
-                "KYC final decision recorded as %s",
-                decision
-            )
+        # ============================================================
+        # LLM LATENCY
+        # ============================================================
 
         llm_end = time.perf_counter()
         llm_time = llm_end - llm_start
 
         logger.info(
-        "LLM KYC assessment completed in %.3f seconds",
-        llm_time
+            "LLM KYC assessment completed in %.3f seconds",
+            llm_time
         )
 
         publish_metric(
@@ -1594,12 +1674,70 @@ if st.button("Submit"):
             "Seconds"
         )
 
+        # ============================================================
+        # HANDLE INVALID LLM OUTPUT
+        # ============================================================
+
+        if not assessment_valid:
+
+            logger.error(
+                "LLM output validation failed: %s",
+                validation_error
+            )
+
+            publish_metric(
+                "KYC_Errors",
+                1,
+                "Count"
+            )
+
+            st.error(
+                "The AI assessment could not be validated. "
+                "Please review the case manually."
+            )
+
+            total_end = time.perf_counter()
+            total_time = total_end - total_start
+
+            logger.info(
+                "KYC verification stopped after invalid AI assessment "
+                "in %.3f seconds",
+                total_time
+            )
+
+            publish_metric(
+                "TotalLatency",
+                total_time,
+                "Seconds"
+            )
+
+            st.stop()
+
+        # ============================================================
+        # RECORD VALID KYC DECISION
+        # ============================================================
+
+        publish_metric(
+            f"KYC_{decision}",
+            1,
+            "Count"
+        )
+
+        logger.info(
+            "KYC final decision recorded as %s",
+            decision
+        )
+
+        # ============================================================
+        # TOTAL LATENCY
+        # ============================================================
+
         total_end = time.perf_counter()
         total_time = total_end - total_start
 
         logger.info(
-        "KYC verification completed in %.3f seconds",
-        total_time
+            "KYC verification completed in %.3f seconds",
+            total_time
         )
 
         publish_metric(
@@ -1608,7 +1746,6 @@ if st.button("Submit"):
             "Seconds"
         )
 
-
         # ============================================================
         # DISPLAY AI ASSESSMENT
         # ============================================================
@@ -1616,7 +1753,6 @@ if st.button("Submit"):
         st.write(
             assessment
         )
-
 
         # ====================================================
         # DELETE TEMPORARY FILES

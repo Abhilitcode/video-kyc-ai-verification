@@ -19,4 +19,6 @@ dummy_backup.py
 
 *.xlsx
 
+guardrails_code_explain.ipynb
+
 test_data/
