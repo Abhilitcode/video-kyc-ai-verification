@@ -127,293 +127,389 @@ The system is designed to avoid blindly trusting an LLM. Verification results ar
 
         AWS S3  ← File Storage
         CloudWatch ← Logs + Metrics
+```
+## Verification Pipeline
 
-
-Verification Pipeline
-1. Input Validation
+### 1. Input Validation
 
 Before processing, the system validates the uploaded files.
 
 For the identity image:
 
-Checks that the file exists and is non-empty.
-Validates that the image can be opened and loaded.
+- Checks that the file exists and is non-empty.
+- Validates that the image can be opened and loaded.
 
 For the verification video:
 
-Checks that the file exists and is non-empty.
-Verifies that OpenCV can open the video and read a frame.
-2. OCR
+- Checks that the file exists and is non-empty.
+- Verifies that OpenCV can open the video and read a frame.
+
+---
+
+### 2. OCR
 
 EasyOCR is used to extract information from the identity document.
 
 The pipeline extracts relevant fields such as:
 
-Name
-Date of Birth
-ID Number
+- Name
+- Date of Birth
+- ID Number
 
 Regular expressions are then used to identify expected patterns from the OCR output.
 
-3. Face Verification
+---
+
+### 3. Face Verification
 
 The system performs face verification using dlib.
 
 The pipeline:
 
-Detects the face in the identity photo.
-Detects a usable face from the verification video.
-Generates facial embeddings.
-Calculates the distance between the two embeddings.
-Produces face-match evidence for the final decision.
+1. Detects the face in the identity photo.
+2. Detects a usable face from the verification video.
+3. Generates facial embeddings.
+4. Calculates the distance between the two embeddings.
+5. Produces face-match evidence for the final decision.
 
 The system is designed to avoid automatically treating ambiguous cases as successful verification.
 
-4. Liveness Detection
+---
+
+### 4. Liveness Detection
 
 The video is analyzed using facial landmarks.
 
 The system checks for:
 
-Eye blinks
-Lip movement
-Face presence
-Multiple faces
+- Eye blinks
+- Lip movement
+- Face presence
+- Multiple faces
 
 The result contributes to the final KYC assessment.
 
-The system can return a REVIEW outcome when liveness evidence is insufficient rather than automatically treating the case as a failure.
+The system can return a **REVIEW** outcome when liveness evidence is insufficient rather than automatically treating the case as a failure.
 
-Policy-Aware RAG
+---
+
+## Policy-Aware RAG
 
 Instead of allowing the LLM to make decisions from general knowledge, the project uses a dedicated KYC policy document.
 
 The policy contains sections covering:
 
-Purpose
-ID Information Requirements
-Face Verification
-Liveness Verification
-Overall Decision Rules
-Outcome Definitions
-Example Evidence
-Scope of the Policy
+1. Purpose
+2. ID Information Requirements
+3. Face Verification
+4. Liveness Verification
+5. Overall Decision Rules
+6. Outcome Definitions
+7. Example Evidence
+8. Scope of the Policy
 
 The policy is converted into chunks and embedded using OpenAI embeddings.
 
-Hybrid Retrieval
+### Hybrid Retrieval
 
 For each KYC case, relevant policy sections are retrieved using:
 
-Semantic similarity
-Keyword overlap
+- **Semantic similarity**
+- **Keyword overlap**
 
 The final retrieval score uses:
-
 Combined Score =
 0.80 × Semantic Similarity +
 0.20 × Keyword Score
 
 The highest-ranked policy chunks are provided to the LLM as evidence.
 
-LLM Decisioning
+## LLM Decisioning
 
-The retrieved policy and verification evidence are provided to GPT-5-mini.
+The retrieved policy and verification evidence are provided to **GPT-5-mini**.
 
 The model is instructed to:
 
-Follow the retrieved KYC policy.
-Use only the provided evidence.
-Avoid inventing verification results.
-Return a structured assessment.
-Provide a decision, reason, and recommended action.
+- Follow the retrieved KYC policy.
+- Use only the provided evidence.
+- Avoid inventing verification results.
+- Return a structured assessment.
+- Provide a decision, reason, and recommended action.
 
 Possible outcomes:
 
+```text
 PASS
 REVIEW
 FAIL
+```
 
-The LLM is therefore used primarily for policy-grounded assessment and reasoning, rather than performing the underlying OCR or computer vision verification itself.
+### Example Expected Structure
 
-LLM Output Guardrails
-
-The project implements a strict output validation layer.
-
-The response is checked to ensure that:
-
-A valid decision exists.
-The decision is exactly PASS, REVIEW, or FAIL.
-A reason is provided.
-A recommended action is provided.
-
-Example expected structure:
-
+```text
 Decision: REVIEW
 
-Reason: ...
+Reason: The provided verification evidence does not fully satisfy the policy requirements.
 
-Recommended Action: ...
+Recommended Action: Perform manual verification of the flagged evidence.
+```
 
-Responses that fail structural validation are rejected rather than treated as valid KYC assessments.
+The LLM is therefore used as a **policy-constrained decisioning layer**, rather than as the source of the underlying verification evidence.
 
-Observability
+---
 
-The application integrates Amazon CloudWatch for application observability.
+## LLM Output Guardrails
 
-Logged Information
+The final LLM response is validated before being accepted as a KYC assessment.
 
-Application logs are sent to CloudWatch using Watchtower.
+The output must contain:
 
-Custom Metrics
+- A valid decision:
+  - `PASS`
+  - `REVIEW`
+  - `FAIL`
+- A non-empty reason.
+- A recommended action.
 
-The system tracks metrics including:
+If the response does not satisfy the required structure, it is rejected instead of being directly displayed as a final assessment.
 
-OCR latency
-Face verification latency
-Liveness latency
-RAG latency
-LLM latency
-Total processing latency
-PASS count
-REVIEW count
-FAIL count
-Error count
+This prevents malformed or incomplete LLM responses from being treated as valid KYC decisions.
 
-This makes it possible to identify performance bottlenecks and monitor the behavior of the verification pipeline.
+---
 
-Performance
+## Observability
 
-Observed end-to-end processing time is approximately:
+The application integrates **Amazon CloudWatch** for application logging and performance monitoring.
 
-~23–60 seconds per uploaded case
+### Application Logs
 
-depending on the video input and processing conditions.
+The system records application events including:
 
-The application also records stage-level latency to identify which components contribute most to total processing time.
+- Processing stages
+- Verification results
+- Errors
+- LLM assessment events
+- Overall KYC outcomes
 
-Technology Stack
-AI / ML
-Python
-EasyOCR
-dlib
-OpenCV
-NumPy
-SciPy
-Generative AI
-OpenAI API
-GPT-5-mini
-text-embedding-3-small
-Retrieval-Augmented Generation (RAG)
-LLM output guardrails
-Cloud / Deployment
-Amazon S3
-Amazon CloudWatch
-Watchtower
-Streamlit Cloud
-Application
-Streamlit
-PyPDF
-Regex
-Logging
-Project Structure
+### Custom Metrics
 
-A simplified structure for the project:
+The following latency metrics are tracked:
 
-Video-KYC/
+- OCR latency
+- Face verification latency
+- Liveness detection latency
+- RAG latency
+- LLM latency
+- Total processing latency
+
+The system also tracks KYC outcomes:
+
+- `KYC_PASS`
+- `KYC_REVIEW`
+- `KYC_FAIL`
+- `KYC_Errors`
+
+This provides visibility into both **system performance and verification outcomes**.
+
+---
+
+## Performance
+
+Observed end-to-end processing time during testing was approximately:
+
+**23–60 seconds per KYC case**
+
+The observed latency includes:
+
+- Input processing
+- OCR
+- Face verification
+- Liveness detection
+- Policy retrieval
+- LLM decisioning
+- Output validation
+
+The actual processing time can vary depending on video length, number of frames processed, model inference time, and deployment environment.
+
+---
+
+## Technology Stack
+
+### AI / Machine Learning
+
+- Python
+- EasyOCR
+- dlib
+- OpenCV
+- NumPy
+
+### Generative AI
+
+- OpenAI GPT-5-mini
+- OpenAI Embeddings
+- Retrieval-Augmented Generation (RAG)
+- Hybrid semantic + keyword retrieval
+- LLM guardrails
+
+### Cloud / Deployment
+
+- Amazon S3
+- Amazon CloudWatch
+- AWS IAM
+- Streamlit Cloud
+
+### Application
+
+- Streamlit
+- PyMuPDF
+- boto3
+- Watchtower
+- scikit-learn
+
+---
+
+## Project Structure
+
+```text
+Video KYC/
 │
 ├── app.py
 ├── final_kyc_verification_policy.pdf
 ├── requirements.txt
+├── README.md
 ├── .gitignore
-└── README.md
-Installation
-1. Clone the repository
-git clone <your-repository-url>
-cd Video-KYC
-2. Create a virtual environment
+│
+├── models/
+│   └── shape_predictor_68_face_landmarks.dat
+│
+└── assets/
+    └── ...
+```
+
+---
+
+## Installation
+
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd "Video KYC"
+```
+
+### 2. Create a Virtual Environment
+
+```bash
 python -m venv .venv
+```
 
 Activate it on Windows:
 
+```bash
 .venv\Scripts\activate
-3. Install dependencies
+```
+
+### 3. Install Dependencies
+
+```bash
 pip install -r requirements.txt
-Environment Configuration
+```
 
-The application requires credentials for:
+---
 
-OpenAI API
-AWS
+## Environment Configuration
 
-For local development, configure them using Streamlit secrets.
+Create a `.env` file or configure the required environment variables in your deployment environment.
 
-Example:
+```text
+OPENAI_API_KEY=your_openai_api_key
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_REGION=your_aws_region
+S3_BUCKET_NAME=your_s3_bucket
+```
 
-OPENAI_API_KEY = "your-openai-key"
+Do not commit API keys or AWS credentials to the repository.
 
-AWS_ACCESS_KEY_ID = "your-access-key"
-AWS_SECRET_ACCESS_KEY = "your-secret-key"
-AWS_DEFAULT_REGION = "ap-south-1"
+---
 
-Never commit API keys, AWS credentials, or other secrets to GitHub.
+## Running the Application
 
-Running the Application
+Start the Streamlit application using:
 
-Start the Streamlit application with:
-
+```bash
 streamlit run app.py
+```
 
 The application will open in your browser.
 
-Workflow Summary
-Upload ID + Verification Video
-            ↓
-       Input Validation
-            ↓
-           OCR
-            ↓
-     Face Verification
-            ↓
-    Liveness Detection
-            ↓
-     Build Evidence
-            ↓
-      Hybrid RAG
-            ↓
-      Retrieve Policy
-            ↓
-        GPT-5-mini
-            ↓
-     Output Guardrails
-            ↓
-     PASS / REVIEW / FAIL
-            ↓
- CloudWatch Logs + Metrics
-Why This Project?
+Upload:
 
-The goal of this project is to demonstrate how multiple AI components can be combined into a practical verification workflow rather than building a standalone OCR, face-recognition, or chatbot application.
+1. Identity document/photo
+2. Verification video
 
-The system brings together:
+The system will then execute the complete KYC verification pipeline and display the final assessment.
 
-Computer Vision
-OCR
-Liveness Detection
-RAG
-LLMs
-Guardrails
-AWS
-Observability
-Application Deployment
+---
 
-into a single end-to-end AI application.
+## Workflow Summary
 
-Future Improvements
+```text
+User
+ │
+ ├── ID Document
+ │
+ └── Verification Video
+          │
+          ▼
+   Input Validation
+          │
+          ├───────────────┐
+          ▼               ▼
+        OCR       Face Verification
+          │               │
+          └───────┬───────┘
+                  ▼
+          Liveness Detection
+                  │
+                  ▼
+         Verification Evidence
+                  │
+                  ▼
+          Policy-Aware RAG
+                  │
+                  ▼
+             GPT-5-mini
+                  │
+                  ▼
+          Output Guardrails
+                  │
+                  ▼
+        PASS / REVIEW / FAIL
+```
 
-Potential extensions include:
-More robust multi-frame face verification.
-Additional liveness signals.
+---
 
-Disclaimer
+## Why This Project?
 
-This project is an independent technical implementation for learning and demonstration purposes. It is not intended to be used as a legally compliant KYC solution or as a replacement for regulated identity-verification systems without further validation, security review, and compliance requirements.    
+This project demonstrates how **Computer Vision, Retrieval-Augmented Generation, LLMs, and cloud observability** can be combined into a practical AI verification workflow.
+
+Instead of allowing an LLM to independently decide whether a person passes KYC, deterministic verification components first generate evidence. The LLM then interprets that evidence against the retrieved verification policy.
+
+This architecture helps separate:
+
+**Evidence Generation → Policy Retrieval → Decisioning → Validation**
+
+which makes the system more structured and auditable than a simple LLM-based classification workflow.
+
+---
+
+## Future Improvements
+
+Potential future improvements include:
+
+- Improved face verification under different lighting and camera conditions.
+- Advanced presentation-attack detection for stronger liveness verification.
+
+---
+
